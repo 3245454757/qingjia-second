@@ -502,7 +502,7 @@
         }
 
         async function loadLogs() {
-            const { data } = await supabase.from('login_logs').select('*').order('login_time', { ascending: false }).limit(100);
+            const { data } = await supabase.from('login_logs').select('*').order('login_time', { ascending: false });
             if (data) {
                 allLogs = data;
                 renderLogs(allLogs);
