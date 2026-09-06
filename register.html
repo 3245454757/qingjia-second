@@ -222,63 +222,22 @@
             btn.textContent = '注册中...';
 
             try {
-                // 1. 检查用户名是否已存在
-                const { data: existing } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('username', username)
-                    .maybeSingle();
+                // 调用数据库函数完成注册（查重、验证邀请码、写入都在数据库内进行）
+                const { data: regData, error: regError } = await supabase.rpc('register_user', {
+                    p_username: username,
+                    p_password: password,
+                    p_invite_code: inviteCode
+                });
+                const regRes = (regData && typeof regData === 'object') ? regData : null;
 
-                if (existing) {
-                    showToast('该用户名已被注册');
+                if (regError || !regRes || regRes.error) {
+                    showToast((regRes && regRes.error) || '注册失败，请稍后再试');
                     btn.disabled = false;
                     btn.textContent = '注册';
                     return;
                 }
 
-                                                                                                // 2. 验证邀请码（必须是已注册用户的账户名）
-                const { data: inviter } = await supabase
-                    .from('users')
-                    .select('id')
-                    .eq('username', inviteCode)
-                    .maybeSingle();
-
-                if (!inviter) {
-                    showToast('邀请码无效，请输入已注册用户的账户名');
-                    btn.disabled = false;
-                    btn.textContent = '注册';
-                    return;
-                }
-
-                // 3. 哈希密码
-                const encoder = new TextEncoder();
-                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(password));
-                const passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-                // 4. 写入 users 表
-                const uid = crypto.randomUUID();
-                const { error: insertError } = await supabase
-                    .from('users')
-                    .insert({
-                        id: uid,
-                        username: username,
-                        password_hash: passwordHash,
-                        status: 'pending',
-                        role: 'user',
-                        invited_by: inviteCode,
-                        login_count: 0,
-                        note: ''
-                    });
-
-                                if (insertError) {
-                    console.error('Insert error:', JSON.stringify(insertError));
-                    showToast('写入失败：' + (insertError.message || JSON.stringify(insertError)));
-                    btn.disabled = false;
-                    btn.textContent = '注册';
-                    return;
-                }
-
-                                                // 清除可能存在的 Supabase Auth 会话
+                // 清除可能存在的 Supabase Auth 会话
                 await supabase.auth.signOut().catch(() => {});
 
                 document.getElementById('registerForm').style.display = 'none';

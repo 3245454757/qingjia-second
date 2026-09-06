@@ -185,65 +185,28 @@
             btn.textContent = '登录中...';
 
                         try {
-                // 从 users 表查询用户
-                const { data: userInfo, error: dbError } = await supabase
-                    .from('users')
-                    .select('id, username, password_hash, status, role')
-                    .eq('username', username)
-                    .maybeSingle();
+                // 调用数据库函数验证登录（密码在数据库内核对，不再把哈希下载到浏览器）
+                const { data: loginData, error: rpcError } = await supabase.rpc('auth_login', {
+                    p_username: username,
+                    p_password: password,
+                    p_user_agent: navigator.userAgent
+                });
+                const loginRes = (loginData && typeof loginData === 'object') ? loginData : null;
 
-                if (dbError || !userInfo) {
-                    showToast('登录失败：账号或密码错误');
+                if (rpcError || !loginRes || loginRes.error) {
+                    showToast('登录失败：' + ((loginRes && loginRes.error) || '账号或密码错误'));
                     btn.disabled = false;
                     btn.textContent = '登录';
                     return;
                 }
 
-                // 验证密码
+                // 存储登录状态到 localStorage
+                localStorage.setItem('leave_user', JSON.stringify(loginRes.user));
+
+                // 管理后台凭证（管理员密码的 SHA-256），普通用户存着也无害
                 const encoder = new TextEncoder();
                 const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(password));
-                const passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-                if (passwordHash !== userInfo.password_hash) {
-                    showToast('登录失败：账号或密码错误');
-                    btn.disabled = false;
-                    btn.textContent = '登录';
-                    return;
-                }
-
-                if (userInfo.status === 'pending') {
-                    showToast('您的账号正在等待审核，请耐心等待');
-                    btn.disabled = false;
-                    btn.textContent = '登录';
-                    return;
-                }
-
-                                // 存储登录状态到 localStorage
-                localStorage.setItem('leave_user', JSON.stringify({
-                    id: userInfo.id,
-                    username: userInfo.username,
-                    role: userInfo.role
-                }));
-
-                // 更新登录次数
-                await supabase
-                    .from('users')
-                    .update({
-                        login_count: (userInfo.login_count || 0) + 1,
-                        last_login: new Date().toISOString()
-                    })
-                    .eq('id', userInfo.id);
-
-                                // 记录登录日志
-                const userAgent = navigator.userAgent;
-                
-                await supabase
-                    .from('login_logs')
-                    .insert({
-                        user_id: userInfo.id,
-                        username: userInfo.username,
-                        user_agent: userAgent
-                    });
+                localStorage.setItem('leave_token', Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join(''));
 
                 showToast('登录成功', 'success');
                 setTimeout(() => {
