@@ -367,11 +367,11 @@
         const fmtDT = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
         const fmtDTMin = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
-        const startTime = new Date(now);
+        const startTime = new Date(now.getTime() - 21 * 60 * 1000);
         startTime.setSeconds(0, 0);
         document.getElementById('displayStartTime').textContent = fmtDT(startTime);
 
-        const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 22, 30, 0);
+        const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 22, 0, 0);
         document.getElementById('displayEndTime').textContent = fmtDT(endTime);
 
         const applyTime = new Date(startTime.getTime() - 2 * 60 * 60 * 1000 - 18 * 60 * 1000);
